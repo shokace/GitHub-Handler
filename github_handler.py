@@ -41,10 +41,12 @@ def webhook():
 
         # If the signature is valid, run deployment
         subprocess.check_call(['/bin/bash', f'{REPO_PATH}/../deploy.sh'])
+        
     except Exception as e:
         logging.exception(f"Error during webhook processing: {e}")
         abort(500)  # Or handle the error as appropriate  
 
+    logging.info("Subprocess completed, attempting to return 200...")
 
     return 'OK', 200
 
