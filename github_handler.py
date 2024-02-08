@@ -1,11 +1,11 @@
-from flask import Flask, render_template, request, abort
-from threading import Thread
+from flask import Flask, request, abort
 import datetime as datetime
 import hmac
 import hashlib
 import subprocess
 from dotenv import load_dotenv
 import os
+import logging
 
 
 app = Flask(__name__)
@@ -21,29 +21,30 @@ REPO_PATH = os.getenv('REPO_PATH')
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    # Validate the request
-    print("WEBHOOK'D")
-    signature = request.headers.get('X-Hub-Signature')
-    sha_name, signature = signature.split('=')
-    print(sha_name, signature)
-    if sha_name != 'sha1':
-        abort(501)
-
-    # HMAC requires the key to be bytes, but data is string
-    mac = hmac.new(GITHUB_SECRET_BYTES, msg=request.data, digestmod=hashlib.sha1)
-
-    # Verify the signature
-    if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
-        abort(403)
-
-    # If the signature is valid, run deployment
     try:
-        subprocess.call(['/bin/bash', f'{REPO_PATH}/../deploy.sh'])
-        print("DONE")
-    except subprocess.CalledProcessError as e:
-        print(f"Error: {e}")  
+        # Validate the request
+        logging.info("WEBHOOK'D")
+        signature = request.headers.get('X-Hub-Signature')
+        sha_name, signature = signature.split('=')
+        logging.info(f"Signature details: {sha_name}, {signature}")
+        if sha_name != 'sha1':
+            logging.error("Unsupported hash algorithm")
+            abort(501)
 
- 
+        # HMAC requires the key to be bytes, but data is string
+        mac = hmac.new(GITHUB_SECRET_BYTES, msg=request.data, digestmod=hashlib.sha1)
+
+        # Verify the signature
+        if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
+            logging.error("Signature verification failed")
+            abort(403)
+
+        # If the signature is valid, run deployment
+        subprocess.check_call(['/bin/bash', f'{REPO_PATH}/../deploy.sh'])
+    except Exception as e:
+        logging.exception(f"Error during webhook processing: {e}")
+        abort(500)  # Or handle the error as appropriate  
+
 
     return 'OK', 200
 
