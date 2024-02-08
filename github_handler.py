@@ -23,12 +23,12 @@ REPO_PATH = os.getenv('REPO_PATH')
 def webhook():
     try:
         # Validate the request
-        logging.info("WEBHOOK'D")
+        app.logger.info("WEBHOOK'D")
         signature = request.headers.get('X-Hub-Signature')
         sha_name, signature = signature.split('=')
-        logging.info(f"Signature details: {sha_name}, {signature}")
+        app.logger.info(f"Signature details: {sha_name}, {signature}")
         if sha_name != 'sha1':
-            logging.error("Unsupported hash algorithm")
+            app.logger.error("Unsupported hash algorithm")
             abort(501)
 
         # HMAC requires the key to be bytes, but data is string
@@ -36,17 +36,17 @@ def webhook():
 
         # Verify the signature
         if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
-            logging.error("Signature verification failed")
+            app.logger.error("Signature verification failed")
             abort(403)
 
         # If the signature is valid, run deployment
-        subprocess.check_call(['/bin/bash', f'{REPO_PATH}/../deploy.sh'])
+        subprocess.Popen(['/bin/bash', f'{REPO_PATH}/../deploy.sh'])
         
     except Exception as e:
-        logging.exception(f"Error during webhook processing: {e}")
+        app.logger.exception(f"Error during webhook processing: {e}")
         abort(500)  # Or handle the error as appropriate  
 
-    logging.info("Subprocess completed, attempting to return 200...")
+    app.logger.info("Subprocess completed, attempting to return 200...")
 
     return 'OK', 200
 
